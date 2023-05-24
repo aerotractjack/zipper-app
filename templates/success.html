@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <h1>Successful Submission: Zipped {{ filenames|length }} projects</h1>
+        {% for fname in filenames %}
+            <h3>Filenames: {{ fname }}</h3>
+        {% endfor %}
+        <a href="/">Submit another form</a>
+    </body>
+</html>

@@ -1,0 +1,12 @@
+[Unit] 
+Description=Serve API for zipping files in NAS
+After=network.target
+
+[Service]
+User=aerotract
+WorkingDirectory=/home/aerotract/software/zipper-app
+ExecStart=/home/aerotract/software/zipper-app/run.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
