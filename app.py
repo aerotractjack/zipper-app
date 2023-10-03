@@ -2,9 +2,6 @@ import os
 import glob
 import zipfile
 from pathlib import Path
-from collections import Counter
-import shutil
-import tempfile
 import sys
 from flask import Flask, render_template, request, redirect, session, jsonify
 from secret import secret_key
@@ -27,7 +24,7 @@ The resulting .zip files are moved to the original directory, and their names
 are stored in a Flask session variable for later access. The number of .zip
 files created is also stored in the session data.
 
-The script also prints some logging information to the console, including the
+The script also logs some logging information to the console, including the
 base directory and the number of projects zipped.
 
 Finally, the script redirects the user to a success page, which displays the
@@ -41,59 +38,71 @@ separators.
 app = Flask(__name__, template_folder="templates")
 app.secret_key = secret_key
 
+import os
+import glob
+from pathlib import Path
+import zipfile
+
+def log(*msg):
+    print(*msg)
+    sys.stdout.flush()
+
 class DirZipper:
 
     def __init__(self, base_dir):
         if base_dir[:2] == "Z:":
-            print("*")
+            log("*")
             base_dir = base_dir.replace(
                 r'Z:\Clients', r'/home/aerotract/NAS/main/Clients').replace('\\', '/')
         self.base_dir = Path(base_dir).as_posix()
-        print(self.base_dir)
 
     def collect_filenames(self):
-        files = os.listdir(self.base_dir)
-        files = set([f.split(".")[0] for f in files])
-        return files
+        names = set()
+        for f in os.listdir(self.base_dir):
+            f = Path(f)
+            names.add(f.stem)
+        return list(names)
 
-    def zip_files(self, filenames):
-        zipped = []
-        for f in filenames:
-            zipped.append(self.zip_from_filename(f))
-        return zipped
+    def glob_filenames(self, name):
+        globstr = f"{self.base_dir}/{name}.*"
+        res = list(glob.glob(globstr))
+        return res
 
-    def zip_from_filename(self, filename):
-        with tempfile.TemporaryDirectory() as tempdir:
-            zipfname_temp = f"{tempdir}/{filename}.zip"
-            zipf = zipfile.ZipFile(zipfname_temp, 'w', zipfile.ZIP_DEFLATED)
-            for file in glob.glob(f"{self.base_dir}/{filename}.*"):
-                zipf.write(file)
-            zipf.close()
-            zipfname_final = f"{self.base_dir}/{filename}.zip"
-            shutil.move(zipfname_temp, zipfname_final)
-        return zipfname_final
+    def create_zipfile_from_name(self, name):
+        p = (Path(self.base_dir) / name).with_suffix(".zip")
+        return p.as_posix()
+
+    def zip_files(self, zipname, filenames):
+        with zipfile.ZipFile(zipname, 'w') as zipf:
+            for file in filenames:
+                zipf.write(file, Path(file).name)
 
     @classmethod
-    def zip_dir(cls, base_dir):
-        z = cls(base_dir)
-        filenames = z.collect_filenames()
-        print(filenames)
-        zipped = z.zip_files(filenames)
-        return z.base_dir, zipped, len(zipped)
+    def ZipDir(cls, base_dir):
+        self = cls(base_dir)
+        zipped = []
+        for name in self.collect_filenames():
+            log(name)
+            file_list = self.glob_filenames(name)
+            log(file_list)
+            zipname = self.create_zipfile_from_name(name)
+            log(zipname)
+            zipped.append(zipname)
+            self.zip_files(zipname, file_list)
+        return base_dir, zipped, len(zipped)
+
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
     if request.method == 'POST':
         base_dir = request.form.get('base_dir')
-        base_dir, zipped, count = DirZipper.zip_dir(base_dir)
+        base_dir, zipped, count = DirZipper.ZipDir(base_dir)
         session["zipped"] = zipped
         session["count"] = count
-        sys.stdout.flush()
-        print("=================")
-        print("Base dir: ", base_dir)
-        print("Projects zipped: ", len(zipped))
-        print("=================")
-        sys.stdout.flush()
+        log("=================")
+        log("Base dir: ", base_dir)
+        log("Projects zipped: ", len(zipped))
+        log("=================")
         return redirect("/success")
     return render_template("home.html")
 
