@@ -43,6 +43,15 @@ import glob
 from pathlib import Path
 import zipfile
 
+from aerologger import AeroLogger
+zip_logger = AeroLogger(
+    'ZIP Service',
+    'ZIPServ/ZIPServ.log'
+)
+
+from requires_nas import requires_nas_loop
+requires_nas_loop(info_logger=zip_logger.info, error_logger=zip_logger.error)
+
 def log(*msg):
     print(*msg)
     sys.stdout.flush()
@@ -51,7 +60,6 @@ class DirZipper:
 
     def __init__(self, base_dir):
         if base_dir[:2] == "Z:":
-            log("*")
             base_dir = base_dir.replace(
                 r'Z:\Clients', r'/home/aerotract/NAS/main/Clients').replace('\\', '/')
         self.base_dir = Path(base_dir).as_posix()
@@ -82,12 +90,15 @@ class DirZipper:
         self = cls(base_dir)
         zipped = []
         for name in self.collect_filenames():
-            log(name)
             file_list = self.glob_filenames(name)
-            log(file_list)
             zipname = self.create_zipfile_from_name(name)
-            log(zipname)
             zipped.append(zipname)
+            zip_logger.info(json.dumps(
+                {
+                    "source": file_list,
+                    "dest": zipname
+                }, indent=4
+            ))
             self.zip_files(zipname, file_list)
         return base_dir, zipped, len(zipped)
 
