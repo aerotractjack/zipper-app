@@ -110,10 +110,7 @@ def home():
         base_dir, zipped, count = DirZipper.ZipDir(base_dir)
         session["zipped"] = zipped
         session["count"] = count
-        log("=================")
-        log("Base dir: ", base_dir)
-        log("Projects zipped: ", len(zipped))
-        log("=================")
+        zip_logger.info(f"Completed {len(zipped)} projects")
         return redirect("/success")
     return render_template("home.html")
 
